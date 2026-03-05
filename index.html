@@ -336,14 +336,16 @@
         </section>
 
         <section class="stats-dashboard" id="stats-dashboard">
-            <!-- Stats cards will be here -->
+            <div style="grid-column: 1 / -1; text-align: center; padding: 40px; color: var(--text-secondary); font-family: var(--font-mono);">
+                Click ▶ RUN SIMULATION to begin.
+            </div>
         </section>
 
         <section class="chart-container">
             <div class="chart-box">
                 <canvas id="price-chart"></canvas>
             </div>
-            <div class="chart-box">
+            <div class="chart-box" id="portfolio-chart-box">
                 <canvas id="portfolio-chart"></canvas>
             </div>
         </section>
@@ -483,8 +485,6 @@ def run_simulation(seed):
     cash = 10000.0
     btc_held = 0.0
     ledger = []
-    trades = 0
-    wins = 0
 
     bh_btc_held = 10000.0 / ohlcv[0]["close"]
 
@@ -511,16 +511,13 @@ def run_simulation(seed):
                         btc_held = cash / price
                         cash = 0
                         signal = "BUY"
-                        trades += 1
 
                 # SELL: SMA7 crosses below SMA30 AND RSI > 30
                 elif prev_s7 >= prev_s30 and s7 < s30 and r14 > 30:
                     if btc_held > 0:
-                        trade_pnl = (btc_held * price) - (btc_held * ledger[-1]["close"] if len(ledger) > 0 else 0) # simplified pnl check
                         cash = btc_held * price
                         btc_held = 0
                         signal = "SELL"
-                        trades += 1
                     # A better win check would compare sell price to entry price.
                     # Let's track entry price.
 
@@ -610,6 +607,7 @@ run_simulation
         // Charts
         let priceChart = null;
         let portfolioChart = null;
+        let tickerClone = null;
 
         async function initPyodide() {
             if (pyodide) return;
@@ -634,7 +632,7 @@ run_simulation
             loadingText.innerText = `Simulating (Seed: ${seed})...`;
 
             try {
-                const pythonCode = document.getElementById('python-code').innerText;
+                const pythonCode = document.getElementById('python-code').textContent;
                 await pyodide.runPythonAsync(pythonCode);
                 const resultJson = await pyodide.runPythonAsync(`run_simulation(${seed})`);
                 simulationData = JSON.parse(resultJson);
@@ -705,22 +703,6 @@ run_simulation
                             order: 3
                         },
                         {
-                            label: 'SMA7',
-                            data: ledger.map(d => d.sma7),
-                            borderColor: 'orange',
-                            borderWidth: 1,
-                            pointRadius: 0,
-                            order: 4
-                        },
-                        {
-                            label: 'SMA30',
-                            data: ledger.map(d => d.sma30),
-                            borderColor: 'var(--electric-blue)',
-                            borderWidth: 1,
-                            pointRadius: 0,
-                            order: 5
-                        },
-                        {
                             label: 'BB Upper',
                             data: ledger.map(d => d.bb_upper),
                             borderColor: 'rgba(255, 255, 255, 0.1)',
@@ -738,6 +720,22 @@ run_simulation
                             pointRadius: 0,
                             fill: false,
                             order: 7
+                        },
+                        {
+                            label: 'SMA7',
+                            data: ledger.map(d => d.sma7),
+                            borderColor: 'orange',
+                            borderWidth: 1,
+                            pointRadius: 0,
+                            order: 4
+                        },
+                        {
+                            label: 'SMA30',
+                            data: ledger.map(d => d.sma30),
+                            borderColor: 'var(--electric-blue)',
+                            borderWidth: 1,
+                            pointRadius: 0,
+                            order: 5
                         },
                         {
                             label: 'BUY',
@@ -857,17 +855,21 @@ run_simulation
         }
 
         function startTicker() {
-            const last10 = simulationData.ledger.slice(-20);
+            const last20 = simulationData.ledger.slice(-20);
             tickerContent.innerHTML = '';
-            last10.forEach(d => {
+            last20.forEach(d => {
                 const item = document.createElement('div');
                 item.className = 'ticker-item';
                 item.innerHTML = `BTC/USD <span>$${d.close.toLocaleString(undefined, {maximumFractionDigits: 2})}</span>`;
                 tickerContent.appendChild(item);
             });
-            // Clone for infinite effect
-            const clone = tickerContent.innerHTML;
-            tickerContent.innerHTML += clone + clone;
+
+            if (!tickerClone) {
+                tickerClone = tickerContent.cloneNode(true);
+                tickerClone.id = '';
+                tickerContent.parentElement.appendChild(tickerClone);
+            }
+            tickerClone.innerHTML = tickerContent.innerHTML;
         }
 
         function exportCSV() {
