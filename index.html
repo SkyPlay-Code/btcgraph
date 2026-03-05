@@ -575,14 +575,17 @@ def run_simulation():
                 # BUY: SMA7 crosses above SMA30 AND RSI < 70
                 if prev_s7 <= prev_s30 and s7 > s30 and r14 < 70:
                     if cash > 0:
-                        btc_held = cash / price
+                        fee = (cash / price) * 0.001
+                        btc_held = (cash / price) - fee
                         cash = 0
                         signal = "BUY"
 
                 # SELL: SMA7 crosses below SMA30 AND RSI > 30
                 elif prev_s7 >= prev_s30 and s7 < s30 and r14 > 30:
                     if btc_held > 0:
-                        cash = btc_held * price
+                        gross_cash = btc_held * price
+                        fee = gross_cash * 0.001
+                        cash = gross_cash - fee
                         btc_held = 0
                         signal = "SELL"
                     # A better win check would compare sell price to entry price.
