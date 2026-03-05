@@ -1,0 +1,922 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BTC ALGO TRADER — 3YR BACKTEST SIMULATION</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js"></script>
+    <style>
+        :root {
+            --bg-color: #0a0a0f;
+            --card-bg: #14141f;
+            --text-primary: #ffffff;
+            --text-secondary: #a0a0b0;
+            --neon-green: #00ff88;
+            --electric-blue: #00b4ff;
+            --neon-red: #ff3e3e;
+            --border-color: #2a2a3a;
+            --font-mono: 'JetBrains Mono', monospace;
+            --font-sans: 'Inter', sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            font-family: var(--font-sans);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        /* Ticker Tape */
+        .ticker-tape {
+            background: #000;
+            border-bottom: 1px solid var(--border-color);
+            height: 40px;
+            overflow: hidden;
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .ticker-content {
+            display: flex;
+            white-space: nowrap;
+            animation: ticker 60s linear infinite;
+            padding-left: 100%;
+        }
+
+        @keyframes ticker {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-100%); }
+        }
+
+        .ticker-item {
+            display: inline-block;
+            padding: 0 30px;
+            font-family: var(--font-mono);
+            font-size: 14px;
+            color: var(--electric-blue);
+        }
+
+        .ticker-item span {
+            color: var(--neon-green);
+            margin-left: 8px;
+        }
+
+        header {
+            padding: 40px 20px 20px;
+            text-align: center;
+        }
+
+        h1 {
+            font-family: var(--font-mono);
+            font-size: 1.8rem;
+            letter-spacing: 2px;
+            color: var(--text-primary);
+            text-shadow: 0 0 10px rgba(0, 180, 255, 0.3);
+        }
+
+        main {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        /* Control Panel */
+        .control-panel {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+            margin-bottom: 30px;
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+
+        .input-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        input {
+            background: #000;
+            border: 1px solid var(--border-color);
+            color: var(--neon-green);
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-family: var(--font-mono);
+            outline: none;
+        }
+
+        button {
+            background: var(--electric-blue);
+            color: #000;
+            border: none;
+            padding: 10px 24px;
+            border-radius: 4px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: var(--font-mono);
+        }
+
+        button:hover {
+            filter: brightness(1.2);
+            box-shadow: 0 0 15px rgba(0, 180, 255, 0.4);
+        }
+
+        .secondary-btn {
+            background: transparent;
+            color: var(--electric-blue);
+            border: 1px solid var(--electric-blue);
+        }
+
+        /* Loading */
+        #loading {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-family: var(--font-mono);
+            color: var(--text-secondary);
+        }
+
+        .spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(0, 180, 255, 0.3);
+            border-top: 2px solid var(--electric-blue);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .hidden { display: none !important; }
+
+        /* Stats Dashboard */
+        .stats-dashboard {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            text-align: center;
+        }
+
+        .stat-label {
+            display: block;
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+            letter-spacing: 1px;
+        }
+
+        .stat-value {
+            display: block;
+            font-family: var(--font-mono);
+            font-size: 1.4rem;
+            font-weight: bold;
+            color: var(--neon-green);
+        }
+
+        /* Chart Section */
+        .chart-container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .chart-box {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            height: 450px;
+            position: relative;
+        }
+
+        #portfolio-chart-box {
+            height: 300px;
+        }
+
+        /* Ledger Table */
+        .ledger-section {
+            background: var(--card-bg);
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            padding: 20px;
+        }
+
+        .ledger-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .ledger-header h2 {
+            font-family: var(--font-mono);
+            font-size: 1.2rem;
+            color: var(--electric-blue);
+        }
+
+        .table-container {
+            overflow-x: auto;
+            max-height: 600px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            text-align: left;
+        }
+
+        th {
+            position: sticky;
+            top: 0;
+            background: #1a1a2e;
+            color: var(--text-secondary);
+            padding: 12px;
+            border-bottom: 2px solid var(--border-color);
+            text-transform: uppercase;
+            font-size: 0.75rem;
+        }
+
+        td {
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .row-buy { background: rgba(0, 255, 136, 0.05); }
+        .row-sell { background: rgba(255, 62, 62, 0.05); }
+
+        .signal-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: bold;
+        }
+
+        .badge-buy { color: var(--neon-green); border: 1px solid var(--neon-green); }
+        .badge-sell { color: var(--neon-red); border: 1px solid var(--neon-red); }
+        .badge-hold { color: var(--text-secondary); border: 1px solid var(--border-color); }
+
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        #page-info {
+            font-family: var(--font-mono);
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+
+        @media (max-width: 768px) {
+            .control-panel {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="ticker-tape" class="ticker-tape">
+        <div id="ticker-content" class="ticker-content">
+            <!-- Price ticker will be here -->
+        </div>
+    </div>
+
+    <header>
+        <h1>BTC ALGO TRADER — 3YR BACKTEST SIMULATION</h1>
+    </header>
+
+    <main>
+        <section class="control-panel">
+            <div class="input-group">
+                <label for="seed-input">Seed:</label>
+                <input type="number" id="seed-input" value="42">
+            </div>
+            <button id="run-btn">▶ RUN SIMULATION</button>
+            <div id="loading" class="hidden">
+                <div class="spinner"></div>
+                <span>Initializing Pyodide...</span>
+            </div>
+        </section>
+
+        <section class="stats-dashboard" id="stats-dashboard">
+            <!-- Stats cards will be here -->
+        </section>
+
+        <section class="chart-container">
+            <div class="chart-box">
+                <canvas id="price-chart"></canvas>
+            </div>
+            <div class="chart-box">
+                <canvas id="portfolio-chart"></canvas>
+            </div>
+        </section>
+
+        <section class="ledger-section">
+            <div class="ledger-header">
+                <h2>Daily Ledger</h2>
+                <button id="export-btn" class="secondary-btn">📥 Export CSV</button>
+            </div>
+            <div class="table-container">
+                <table id="ledger-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Close</th>
+                            <th>SMA7</th>
+                            <th>SMA30</th>
+                            <th>RSI</th>
+                            <th>Signal</th>
+                            <th>Cash</th>
+                            <th>BTC Held</th>
+                            <th>Portfolio Value</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ledger-body">
+                        <!-- Table rows will be here -->
+                    </tbody>
+                </table>
+            </div>
+            <div class="pagination">
+                <button id="prev-btn">Previous</button>
+                <span id="page-info">Page 1 of 1</span>
+                <button id="next-btn">Next</button>
+            </div>
+        </section>
+    </main>
+
+    <script id="python-code" type="text/python">
+import json
+import random
+import math
+from datetime import datetime, timedelta
+
+def run_simulation(seed):
+    random.seed(seed)
+
+    # 1. Price Data Generation (GBM Model)
+    days = 1095
+    start_price = 25000
+    annual_vol = 0.65
+    annual_drift = 0.40
+    dt = 1/365
+
+    prices = [start_price]
+    ohlcv = []
+
+    current_date = datetime(2021, 1, 1)
+
+    for i in range(days):
+        # GBM formula: S_t = S_{t-1} * exp((mu - 0.5 * sigma^2) * dt + sigma * sqrt(dt) * Z)
+        mu = annual_drift
+        sigma = annual_vol
+
+        # Injected Shocks (~8x/year)
+        if random.random() < (8/365):
+            shock = random.uniform(-0.15, 0.15)
+            sigma *= (1 + abs(shock) * 5)
+            mu += shock
+
+        z = random.gauss(0, 1)
+        price_change = math.exp((mu - 0.5 * sigma**2) * dt + sigma * math.sqrt(dt) * z)
+        next_price = prices[-1] * price_change
+        prices.append(next_price)
+
+        # Generate OHLCV
+        day_open = prices[-2]
+        day_close = next_price
+        day_high = max(day_open, day_close) * (1 + random.uniform(0, 0.02))
+        day_low = min(day_open, day_close) * (1 - random.uniform(0, 0.02))
+        volume = random.uniform(1000, 5000) * day_close
+
+        ohlcv.append({
+            "date": current_date.strftime("%Y-%m-%d"),
+            "open": day_open,
+            "high": day_high,
+            "low": day_low,
+            "close": day_close,
+            "volume": volume
+        })
+        current_date += timedelta(days=1)
+
+    # 2. Technical Indicators
+    def calculate_sma(data, window):
+        sma = [None] * len(data)
+        for i in range(window - 1, len(data)):
+            sma[i] = sum(d["close"] for d in data[i-window+1:i+1]) / window
+        return sma
+
+    def calculate_rsi(data, window=14):
+        rsi = [None] * len(data)
+        deltas = []
+        for i in range(1, len(data)):
+            deltas.append(data[i]["close"] - data[i-1]["close"])
+
+        for i in range(window, len(data)):
+            wins = [d for d in deltas[i-window:i] if d > 0]
+            losses = [abs(d) for d in deltas[i-window:i] if d < 0]
+
+            avg_gain = sum(wins) / window
+            avg_loss = sum(losses) / window
+
+            if avg_loss == 0:
+                rsi[i] = 100
+            else:
+                rs = avg_gain / avg_loss
+                rsi[i] = 100 - (100 / (1 + rs))
+        return rsi
+
+    def calculate_bollinger_bands(data, window=20, num_std=2):
+        upper = [None] * len(data)
+        lower = [None] * len(data)
+        for i in range(window - 1, len(data)):
+            window_prices = [d["close"] for d in data[i-window+1:i+1]]
+            ma = sum(window_prices) / window
+            variance = sum((x - ma) ** 2 for x in window_prices) / window
+            std = math.sqrt(variance)
+            upper[i] = ma + (num_std * std)
+            lower[i] = ma - (num_std * std)
+        return upper, lower
+
+    sma7 = calculate_sma(ohlcv, 7)
+    sma30 = calculate_sma(ohlcv, 30)
+    rsi14 = calculate_rsi(ohlcv, 14)
+    bb_upper, bb_lower = calculate_bollinger_bands(ohlcv, 20)
+
+    # 3. Trading Algorithm
+    cash = 10000.0
+    btc_held = 0.0
+    ledger = []
+    trades = 0
+    wins = 0
+
+    bh_btc_held = 10000.0 / ohlcv[0]["close"]
+
+    max_portfolio_value = 10000.0
+    max_drawdown = 0.0
+
+    for i in range(len(ohlcv)):
+        price = ohlcv[i]["close"]
+        s7 = sma7[i]
+        s30 = sma30[i]
+        r14 = rsi14[i]
+
+        signal = "HOLD"
+
+        # Check signals if we have indicators
+        if s7 is not None and s30 is not None and r14 is not None:
+            prev_s7 = sma7[i-1]
+            prev_s30 = sma30[i-1]
+
+            if prev_s7 is not None and prev_s30 is not None:
+                # BUY: SMA7 crosses above SMA30 AND RSI < 70
+                if prev_s7 <= prev_s30 and s7 > s30 and r14 < 70:
+                    if cash > 0:
+                        btc_held = cash / price
+                        cash = 0
+                        signal = "BUY"
+                        trades += 1
+
+                # SELL: SMA7 crosses below SMA30 AND RSI > 30
+                elif prev_s7 >= prev_s30 and s7 < s30 and r14 > 30:
+                    if btc_held > 0:
+                        trade_pnl = (btc_held * price) - (btc_held * ledger[-1]["close"] if len(ledger) > 0 else 0) # simplified pnl check
+                        cash = btc_held * price
+                        btc_held = 0
+                        signal = "SELL"
+                        trades += 1
+                    # A better win check would compare sell price to entry price.
+                    # Let's track entry price.
+
+        portfolio_value = cash + (btc_held * price)
+        max_portfolio_value = max(max_portfolio_value, portfolio_value)
+        drawdown = (max_portfolio_value - portfolio_value) / max_portfolio_value
+        max_drawdown = max(max_drawdown, drawdown)
+
+        ledger.append({
+            "date": ohlcv[i]["date"],
+            "close": price,
+            "sma7": s7,
+            "sma30": s30,
+            "rsi": r14,
+            "bb_upper": bb_upper[i],
+            "bb_lower": bb_lower[i],
+            "signal": signal,
+            "cash": cash,
+            "btc_held": btc_held,
+            "portfolio_value": portfolio_value,
+            "bh_value": bh_btc_held * price
+        })
+
+    # Stats Calculation
+    final_value = ledger[-1]["portfolio_value"]
+    total_return = (final_value - 10000) / 10000
+    bh_final_value = ledger[-1]["bh_value"]
+    bh_return = (bh_final_value - 10000) / 10000
+    alpha = total_return - bh_return
+
+    # Win rate and Sharpe (approximation)
+    # Re-calculate win rate properly
+    entry_price = 0
+    win_count = 0
+    trade_count = 0
+    for entry in ledger:
+        if entry["signal"] == "BUY":
+            entry_price = entry["close"]
+        elif entry["signal"] == "SELL" and entry_price > 0:
+            trade_count += 1
+            if entry["close"] > entry_price:
+                win_count += 1
+            entry_price = 0
+
+    win_rate = (win_count / trade_count) if trade_count > 0 else 0
+
+    # Sharpe Ratio Approximation (Daily returns)
+    daily_returns = []
+    for i in range(1, len(ledger)):
+        ret = (ledger[i]["portfolio_value"] - ledger[i-1]["portfolio_value"]) / ledger[i-1]["portfolio_value"]
+        daily_returns.append(ret)
+
+    avg_daily_ret = sum(daily_returns) / len(daily_returns)
+    std_daily_ret = math.sqrt(sum((x - avg_daily_ret)**2 for x in daily_returns) / len(daily_returns))
+    sharpe = (avg_daily_ret / std_daily_ret) * math.sqrt(365) if std_daily_ret > 0 else 0
+
+    return json.dumps({
+        "ledger": ledger,
+        "stats": {
+            "final_portfolio_value": final_value,
+            "total_return_pct": total_return * 100,
+            "bh_return_pct": bh_return * 100,
+            "alpha_pct": alpha * 100,
+            "total_trades": trade_count,
+            "win_rate_pct": win_rate * 100,
+            "max_drawdown_pct": max_drawdown * 100,
+            "sharpe_ratio": sharpe
+        }
+    })
+
+# Call the function from JS
+run_simulation
+    </script>
+
+    <script>
+        let pyodide;
+        let simulationData = null;
+        let currentPage = 1;
+        const rowsPerPage = 30;
+
+        const runBtn = document.getElementById('run-btn');
+        const loading = document.getElementById('loading');
+        const loadingText = loading.querySelector('span');
+        const seedInput = document.getElementById('seed-input');
+        const tickerContent = document.getElementById('ticker-content');
+
+        // Charts
+        let priceChart = null;
+        let portfolioChart = null;
+
+        async function initPyodide() {
+            if (pyodide) return;
+            loading.classList.remove('hidden');
+            loadingText.innerText = "Loading Pyodide...";
+            pyodide = await loadPyodide({
+                indexURL: "https://cdn.jsdelivr.net/pyodide/v0.25.0/full/"
+            });
+            loadingText.innerText = "Pyodide Ready.";
+            loading.classList.add('hidden');
+        }
+
+        async function runSimulation() {
+            await initPyodide();
+
+            const seedValue = seedInput.value;
+            const seed = seedValue ? parseInt(seedValue) : Math.floor(Math.random() * 1000000);
+            if (!seedValue) seedInput.value = seed;
+
+            runBtn.disabled = true;
+            loading.classList.remove('hidden');
+            loadingText.innerText = `Simulating (Seed: ${seed})...`;
+
+            try {
+                const pythonCode = document.getElementById('python-code').innerText;
+                await pyodide.runPythonAsync(pythonCode);
+                const resultJson = await pyodide.runPythonAsync(`run_simulation(${seed})`);
+                simulationData = JSON.parse(resultJson);
+
+                updateUI();
+                startTicker();
+            } catch (error) {
+                console.error("Simulation failed:", error);
+                alert("Simulation failed. Check console for details.");
+            } finally {
+                runBtn.disabled = false;
+                loading.classList.add('hidden');
+            }
+        }
+
+        function updateUI() {
+            renderStats();
+            renderCharts();
+            currentPage = 1;
+            renderLedger();
+        }
+
+        function renderStats() {
+            const stats = simulationData.stats;
+            const container = document.getElementById('stats-dashboard');
+
+            const cards = [
+                { label: "Final Portfolio", value: `$${stats.final_portfolio_value.toLocaleString(undefined, {maximumFractionDigits: 2})}`, color: "var(--neon-green)" },
+                { label: "Total Return", value: `${stats.total_return_pct.toFixed(2)}%`, color: stats.total_return_pct >= 0 ? "var(--neon-green)" : "var(--neon-red)" },
+                { label: "Buy & Hold Return", value: `${stats.bh_return_pct.toFixed(2)}%`, color: "var(--text-secondary)" },
+                { label: "Alpha", value: `${stats.alpha_pct.toFixed(2)}%`, color: stats.alpha_pct >= 0 ? "var(--neon-green)" : "var(--neon-red)" },
+                { label: "Total Trades", value: stats.total_trades, color: "var(--electric-blue)" },
+                { label: "Win Rate", value: `${stats.win_rate_pct.toFixed(2)}%`, color: "var(--electric-blue)" },
+                { label: "Max Drawdown", value: `${stats.max_drawdown_pct.toFixed(2)}%`, color: "var(--neon-red)" },
+                { label: "Sharpe Ratio", value: stats.sharpe_ratio.toFixed(2), color: "var(--electric-blue)" }
+            ];
+
+            container.innerHTML = cards.map(card => `
+                <div class="stat-card">
+                    <span class="stat-label">${card.label}</span>
+                    <span class="stat-value" style="color: ${card.color}">${card.value}</span>
+                </div>
+            `).join('');
+        }
+
+        function renderCharts() {
+            const ledger = simulationData.ledger;
+            const labels = ledger.map(d => d.date);
+
+            // Price Chart
+            if (priceChart) priceChart.destroy();
+            const priceCtx = document.getElementById('price-chart').getContext('2d');
+
+            const buySignals = ledger.map(d => d.signal === 'BUY' ? d.close : null);
+            const sellSignals = ledger.map(d => d.signal === 'SELL' ? d.close : null);
+
+            priceChart = new Chart(priceCtx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'BTC Price',
+                            data: ledger.map(d => d.close),
+                            borderColor: '#ffffff',
+                            borderWidth: 1.5,
+                            pointRadius: 0,
+                            order: 3
+                        },
+                        {
+                            label: 'SMA7',
+                            data: ledger.map(d => d.sma7),
+                            borderColor: 'orange',
+                            borderWidth: 1,
+                            pointRadius: 0,
+                            order: 4
+                        },
+                        {
+                            label: 'SMA30',
+                            data: ledger.map(d => d.sma30),
+                            borderColor: 'var(--electric-blue)',
+                            borderWidth: 1,
+                            pointRadius: 0,
+                            order: 5
+                        },
+                        {
+                            label: 'BB Upper',
+                            data: ledger.map(d => d.bb_upper),
+                            borderColor: 'rgba(255, 255, 255, 0.1)',
+                            borderWidth: 0.5,
+                            pointRadius: 0,
+                            fill: '+1',
+                            backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                            order: 6
+                        },
+                        {
+                            label: 'BB Lower',
+                            data: ledger.map(d => d.bb_lower),
+                            borderColor: 'rgba(255, 255, 255, 0.1)',
+                            borderWidth: 0.5,
+                            pointRadius: 0,
+                            fill: false,
+                            order: 7
+                        },
+                        {
+                            label: 'BUY',
+                            data: buySignals,
+                            pointStyle: 'triangle',
+                            pointRadius: 8,
+                            backgroundColor: 'var(--neon-green)',
+                            borderColor: 'var(--neon-green)',
+                            showLine: false,
+                            order: 1
+                        },
+                        {
+                            label: 'SELL',
+                            data: sellSignals,
+                            pointStyle: 'triangle',
+                            rotation: 180,
+                            pointRadius: 8,
+                            backgroundColor: 'var(--neon-red)',
+                            borderColor: 'var(--neon-red)',
+                            showLine: false,
+                            order: 2
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: { labels: { color: '#a0a0b0', font: { family: 'JetBrains Mono' } } },
+                        tooltip: { enabled: true }
+                    },
+                    scales: {
+                        x: { ticks: { color: '#666' }, grid: { color: '#1a1a2a' } },
+                        y: { ticks: { color: '#666' }, grid: { color: '#1a1a2a' } }
+                    }
+                }
+            });
+
+            // Portfolio Chart
+            if (portfolioChart) portfolioChart.destroy();
+            const portCtx = document.getElementById('portfolio-chart').getContext('2d');
+
+            portfolioChart = new Chart(portCtx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Algo Strategy',
+                            data: ledger.map(d => d.portfolio_value),
+                            borderColor: 'var(--neon-green)',
+                            borderWidth: 2,
+                            pointRadius: 0
+                        },
+                        {
+                            label: 'Buy & Hold BTC',
+                            data: ledger.map(d => d.bh_value),
+                            borderColor: '#666',
+                            borderWidth: 1,
+                            borderDash: [5, 5],
+                            pointRadius: 0
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { labels: { color: '#a0a0b0', font: { family: 'JetBrains Mono' } } }
+                    },
+                    scales: {
+                        x: { ticks: { color: '#666' }, grid: { color: '#1a1a2a' } },
+                        y: { ticks: { color: '#666' }, grid: { color: '#1a1a2a' } }
+                    }
+                }
+            });
+        }
+
+        function renderLedger() {
+            const ledger = simulationData.ledger;
+            const start = (currentPage - 1) * rowsPerPage;
+            const end = start + rowsPerPage;
+            const pageData = ledger.slice(start, end);
+
+            const tbody = document.getElementById('ledger-body');
+            tbody.innerHTML = pageData.map(row => {
+                let signalBadge = '<span class="signal-badge badge-hold">⚪ HOLD</span>';
+                let rowClass = '';
+                if (row.signal === 'BUY') {
+                    signalBadge = '<span class="signal-badge badge-buy">🟢 BUY</span>';
+                    rowClass = 'row-buy';
+                } else if (row.signal === 'SELL') {
+                    signalBadge = '<span class="signal-badge badge-sell">🔴 SELL</span>';
+                    rowClass = 'row-sell';
+                }
+
+                return `
+                    <tr class="${rowClass}">
+                        <td>${row.date}</td>
+                        <td>${row.close.toFixed(2)}</td>
+                        <td>${row.sma7 ? row.sma7.toFixed(2) : '-'}</td>
+                        <td>${row.sma30 ? row.sma30.toFixed(2) : '-'}</td>
+                        <td>${row.rsi ? row.rsi.toFixed(2) : '-'}</td>
+                        <td>${signalBadge}</td>
+                        <td>${row.cash.toLocaleString(undefined, {maximumFractionDigits: 2})}</td>
+                        <td>${row.btc_held.toFixed(4)}</td>
+                        <td><strong>${row.portfolio_value.toLocaleString(undefined, {maximumFractionDigits: 2})}</strong></td>
+                    </tr>
+                `;
+            }).join('');
+
+            const totalPages = Math.ceil(ledger.length / rowsPerPage);
+            document.getElementById('page-info').innerText = `Page ${currentPage} of ${totalPages}`;
+            document.getElementById('prev-btn').disabled = currentPage === 1;
+            document.getElementById('next-btn').disabled = currentPage === totalPages;
+        }
+
+        function startTicker() {
+            const last10 = simulationData.ledger.slice(-20);
+            tickerContent.innerHTML = '';
+            last10.forEach(d => {
+                const item = document.createElement('div');
+                item.className = 'ticker-item';
+                item.innerHTML = `BTC/USD <span>$${d.close.toLocaleString(undefined, {maximumFractionDigits: 2})}</span>`;
+                tickerContent.appendChild(item);
+            });
+            // Clone for infinite effect
+            const clone = tickerContent.innerHTML;
+            tickerContent.innerHTML += clone + clone;
+        }
+
+        function exportCSV() {
+            if (!simulationData) return;
+            const ledger = simulationData.ledger;
+            const headers = ["Date", "Close", "SMA7", "SMA30", "RSI", "Signal", "Cash", "BTC Held", "Portfolio Value"];
+            const csvRows = [headers.join(",")];
+
+            ledger.forEach(row => {
+                csvRows.push([
+                    row.date,
+                    row.close,
+                    row.sma7 || "",
+                    row.sma30 || "",
+                    row.rsi || "",
+                    row.signal,
+                    row.cash,
+                    row.btc_held,
+                    row.portfolio_value
+                ].join(","));
+            });
+
+            const blob = new Blob([csvRows.join("\n")], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.setAttribute('href', url);
+            a.setAttribute('download', `btc_backtest_${Date.now()}.csv`);
+            a.click();
+        }
+
+        // Event Listeners
+        runBtn.addEventListener('click', runSimulation);
+        document.getElementById('prev-btn').addEventListener('click', () => {
+            if (currentPage > 1) {
+                currentPage--;
+                renderLedger();
+            }
+        });
+        document.getElementById('next-btn').addEventListener('click', () => {
+            const totalPages = Math.ceil(simulationData.ledger.length / rowsPerPage);
+            if (currentPage < totalPages) {
+                currentPage++;
+                renderLedger();
+            }
+        });
+        document.getElementById('export-btn').addEventListener('click', exportCSV);
+
+        // Initial Load
+        window.addEventListener('load', initPyodide);
+    </script>
+</body>
+</html>
