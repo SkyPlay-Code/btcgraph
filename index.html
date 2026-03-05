@@ -577,47 +577,41 @@ run_simulation
             loading.classList.add('hidden');
         }
 
-        async function fetchBTCData() {
-            loading.classList.remove('hidden');
-            loadingText.innerText = "Fetching real BTC data from CoinCap...";
-            try {
-                const end = Date.now();
-                const start = end - (1095 * 24 * 60 * 60 * 1000);
-                const url = `https://api.coincap.io/v2/assets/bitcoin/history?interval=d1&start=${start}&end=${end}`;
+async function fetchBTCData() {
+    loading.classList.remove('hidden');
+    loadingText.innerText = "Fetching real BTC data from Binance...";
 
-                const response = await fetch(url);
-                if (!response.ok) {
-                    throw new Error(`CoinCap API error: ${response.status} ${response.statusText}`);
-                }
-                const result = await response.json();
-                const data = result.data;
+    try {
+        // Binance provides up to 1000 days of history per request (~2.7 years)
+        const url = `https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=1d&limit=1000`;
 
-                if (!data || !Array.isArray(data)) {
-                    throw new Error("Invalid data format received from CoinCap.");
-                }
-
-                const ohlcv = [];
-                for (let i = 0; i < data.length; i++) {
-                    const entry = data[i];
-                    const price = parseFloat(entry.priceUsd);
-                    const date = new Date(entry.time).toISOString().split('T')[0];
-                    const prevClose = i > 0 ? parseFloat(data[i-1].priceUsd) : price;
-
-                    ohlcv.push({
-                        date: date,
-                        open: prevClose,
-                        high: price * 1.01,
-                        low: price * 0.99,
-                        close: price,
-                        volume: 0
-                    });
-                }
-                return ohlcv;
-            } catch (error) {
-                console.error("Failed to fetch data:", error);
-                throw error;
-            }
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Error(`Binance API error: ${response.status} ${response.statusText}`);
         }
+
+        const data = await response.json();
+        if (!data || !Array.isArray(data)) {
+            throw new Error("Invalid data format received from Binance.");
+        }
+
+        const ohlcv = data.map(candle => {
+            return {
+                date: new Date(candle[0]).toISOString().split('T')[0],
+                open: parseFloat(candle[1]),
+                high: parseFloat(candle[2]),
+                low: parseFloat(candle[3]),
+                close: parseFloat(candle[4]),
+                volume: parseFloat(candle[5])
+            };
+        });
+
+        return ohlcv;
+    } catch (error) {
+        console.error("Failed to fetch data:", error);
+        throw error;
+    }
+}
 
         async function runSimulation() {
             await initPyodide();
