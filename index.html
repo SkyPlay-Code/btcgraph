@@ -304,6 +304,39 @@
             color: var(--text-secondary);
         }
 
+        /* Settings Panel */
+        .settings-panel {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 15px;
+            width: 100%;
+            padding: 15px 0;
+            border-top: 1px solid var(--border-color);
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 10px;
+        }
+
+        .setting-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .setting-group label {
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-family: var(--font-mono);
+        }
+
+        .setting-group input {
+            width: 80px;
+            text-align: center;
+        }
+
         /* Documentation Section */
         .docs-toggle-container {
             display: flex;
@@ -384,13 +417,41 @@
     </header>
 
     <main>
-        <section class="control-panel">
-            <div class="input-group">
+        <section class="control-panel" style="flex-direction: column;">
+            <div class="input-group" style="margin-bottom: 15px;">
                 <span id="last-updated" style="color: var(--text-secondary); font-family: var(--font-mono); font-size: 0.8rem;">
                     Last Updated: <span id="update-date" style="color: var(--electric-blue)">-</span>
                 </span>
             </div>
-            <button id="run-btn">▶ RUN SIMULATION</button>
+
+            <div class="settings-panel">
+                <div class="setting-group">
+                    <label>Fast SMA</label>
+                    <input id="fast-sma" type="number" value="7" min="1" max="50">
+                </div>
+                <div class="setting-group">
+                    <label>Slow SMA</label>
+                    <input id="slow-sma" type="number" value="30" min="5" max="200">
+                </div>
+                <div class="setting-group">
+                    <label>RSI Period</label>
+                    <input id="rsi-period" type="number" value="14" min="5" max="30">
+                </div>
+                <div class="setting-group">
+                    <label>RSI OB</label>
+                    <input id="rsi-ob" type="number" value="70" min="50" max="95">
+                </div>
+                <div class="setting-group">
+                    <label>RSI OS</label>
+                    <input id="rsi-os" type="number" value="30" min="5" max="50">
+                </div>
+                <div class="setting-group">
+                    <label>Stop-Loss %</label>
+                    <input id="stop-loss-pct" type="number" value="5" min="1" max="30">
+                </div>
+            </div>
+
+            <button id="run-btn" style="margin-top: 15px;">▶ RUN SIMULATION</button>
             <div id="loading" class="hidden">
                 <div class="spinner"></div>
                 <span>Initializing Pyodide...</span>
@@ -489,7 +550,7 @@
                 <p><strong>Portfolio Chart:</strong> Displays the growth of the Algo Strategy (solid neon green) versus the Buy & Hold benchmark (dashed gray line).</p>
 
                 <h3>Limitations & Disclaimer</h3>
-                <p>This application is for <strong>educational and simulation purposes only</strong>. Past performance is not indicative of future results. The model does not account for trading fees, exchange slippage, or liquidity constraints. Cryptocurrency trading involves significant risk of loss.</p>
+                <p>This application is for <strong>educational and simulation purposes only</strong>. Past performance is not indicative of future results. The model accounts for a fixed <strong>0.1% trading fee</strong> per execution but does not model exchange slippage or liquidity constraints. Cryptocurrency trading involves significant risk of loss.</p>
             </div>
         </section>
     </main>
@@ -543,12 +604,13 @@ def run_simulation():
             lower[i] = ma - (num_std * std)
         return upper, lower
 
-    sma7 = calculate_sma(ohlcv, 7)
-    sma30 = calculate_sma(ohlcv, 30)
-    rsi14 = calculate_rsi(ohlcv, 14)
+    sma7 = calculate_sma(ohlcv, FAST_SMA)
+    sma30 = calculate_sma(ohlcv, SLOW_SMA)
+    rsi14 = calculate_rsi(ohlcv, RSI_PERIOD)
     bb_upper, bb_lower = calculate_bollinger_bands(ohlcv, 20)
 
     # 3. Trading Algorithm
+    STOP_LOSS_MULT = 1 - (STOP_LOSS_PCT / 100)
     cash = 10000.0
     btc_held = 0.0
     entry_price = 0.0
@@ -573,16 +635,16 @@ def run_simulation():
             prev_s30 = sma30[i-1]
 
             if prev_s7 is not None and prev_s30 is not None:
-                # Stop-loss: exit if price drops 5% below entry
-                if btc_held > 0 and entry_price > 0 and price <= entry_price * 0.95:
+                # Stop-loss: exit if price drops X% below entry
+                if btc_held > 0 and entry_price > 0 and price <= entry_price * STOP_LOSS_MULT:
                     gross_cash = btc_held * price
                     fee = gross_cash * 0.001
                     cash = gross_cash - fee
                     btc_held = 0
                     signal = "SELL"
                     entry_price = 0.0
-                # BUY: SMA7 crosses above SMA30 AND RSI < 70
-                elif prev_s7 <= prev_s30 and s7 > s30 and r14 < 70:
+                # BUY: SMA7 crosses above SMA30 AND RSI < RSI_OB
+                elif prev_s7 <= prev_s30 and s7 > s30 and r14 < RSI_OB:
                     if cash > 0:
                         fee = (cash / price) * 0.001
                         btc_held = (cash / price) - fee
@@ -590,8 +652,8 @@ def run_simulation():
                         signal = "BUY"
                         entry_price = price
 
-                # SELL: SMA7 crosses below SMA30 AND RSI > 30
-                elif prev_s7 >= prev_s30 and s7 < s30 and r14 > 30:
+                # SELL: SMA7 crosses below SMA30 AND RSI > RSI_OS
+                elif prev_s7 >= prev_s30 and s7 < s30 and r14 > RSI_OS:
                     if btc_held > 0:
                         gross_cash = btc_held * price
                         fee = gross_cash * 0.001
@@ -738,6 +800,14 @@ async function fetchBTCData() {
 }
 
         async function runSimulation() {
+            // Validation
+            const fastSma = parseInt(document.getElementById('fast-sma').value) || 7;
+            const slowSma = parseInt(document.getElementById('slow-sma').value) || 30;
+            if (fastSma >= slowSma) {
+                alert("Fast SMA must be smaller than Slow SMA!");
+                return;
+            }
+
             await initPyodide();
 
             runBtn.disabled = true;
@@ -748,6 +818,12 @@ async function fetchBTCData() {
                 loadingText.innerText = "Running simulation...";
 
                 pyodide.globals.set('price_data_json', JSON.stringify(ohlcv));
+                pyodide.globals.set('FAST_SMA', fastSma);
+                pyodide.globals.set('SLOW_SMA', slowSma);
+                pyodide.globals.set('RSI_PERIOD', parseInt(document.getElementById('rsi-period').value) || 14);
+                pyodide.globals.set('RSI_OB', parseInt(document.getElementById('rsi-ob').value) || 70);
+                pyodide.globals.set('RSI_OS', parseInt(document.getElementById('rsi-os').value) || 30);
+                pyodide.globals.set('STOP_LOSS_PCT', parseFloat(document.getElementById('stop-loss-pct').value) || 5);
 
                 const pythonCode = document.getElementById('python-code').textContent;
                 await pyodide.runPythonAsync(pythonCode);
