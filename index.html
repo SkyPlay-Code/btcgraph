@@ -579,39 +579,46 @@ run_simulation
 
         async function fetchBTCData() {
             loading.classList.remove('hidden');
-            loadingText.innerText = "Fetching real BTC data from Binance...";
-    
+            loadingText.innerText = "Fetching real BTC data from CoinCap...";
             try {
-                // Binance provides up to 1000 days of history per request (~2.7 years)
-                const url = `https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=1d&limit=1000`;
-        
+                const end = Date.now();
+                const start = end - (1095 * 24 * 60 * 60 * 1000);
+                const url = `https://api.coincap.io/v2/assets/bitcoin/history?interval=d1&start=${start}&end=${end}`;
+
                 const response = await fetch(url);
                 if (!response.ok) {
-                    throw new Error(`Binance API error: ${response.status} ${response.statusText}`);
+                    throw new Error(`CoinCap API error: ${response.status} ${response.statusText}`);
                 }
-        
-                const data = await response.json();
+                const result = await response.json();
+                const data = result.data;
+
                 if (!data || !Array.isArray(data)) {
-                    throw new Error("Invalid data format received from Binance.");
+                    throw new Error("Invalid data format received from CoinCap.");
                 }
 
-                const ohlcv = data.map(candle => {
-                    return {
-                        date: new Date(candle[0]).toISOString().split('T')[0],
-                        open: parseFloat(candle[1]),
-                        high: parseFloat(candle[2]),
-                        low: parseFloat(candle[3]),
-                        close: parseFloat(candle[4]),
-                        volume: parseFloat(candle[5])
-                    };
-                });
-        
+                const ohlcv = [];
+                for (let i = 0; i < data.length; i++) {
+                    const entry = data[i];
+                    const price = parseFloat(entry.priceUsd);
+                    const date = new Date(entry.time).toISOString().split('T')[0];
+                    const prevClose = i > 0 ? parseFloat(data[i-1].priceUsd) : price;
+
+                    ohlcv.push({
+                        date: date,
+                        open: prevClose,
+                        high: price * 1.01,
+                        low: price * 0.99,
+                        close: price,
+                        volume: 0
+                    });
+                }
                 return ohlcv;
             } catch (error) {
                 console.error("Failed to fetch data:", error);
                 throw error;
             }
         }
+
         async function runSimulation() {
             await initPyodide();
 
@@ -733,7 +740,7 @@ run_simulation
                         {
                             label: 'SMA30',
                             data: ledger.map(d => d.sma30),
-                            borderColor: 'var(--electric-blue)',
+                            borderColor: '#00b4ff',
                             borderWidth: 1,
                             pointRadius: 0,
                             order: 5
@@ -743,8 +750,8 @@ run_simulation
                             data: buySignals,
                             pointStyle: 'triangle',
                             pointRadius: 8,
-                            backgroundColor: 'var(--neon-green)',
-                            borderColor: 'var(--neon-green)',
+                            backgroundColor: '#00ff88',
+                            borderColor: '#00ff88',
                             showLine: false,
                             order: 1
                         },
@@ -754,8 +761,8 @@ run_simulation
                             pointStyle: 'triangle',
                             rotation: 180,
                             pointRadius: 8,
-                            backgroundColor: 'var(--neon-red)',
-                            borderColor: 'var(--neon-red)',
+                            backgroundColor: '#ff3e3e',
+                            borderColor: '#ff3e3e',
                             showLine: false,
                             order: 2
                         }
@@ -788,7 +795,7 @@ run_simulation
                         {
                             label: 'Algo Strategy',
                             data: ledger.map(d => d.portfolio_value),
-                            borderColor: 'var(--neon-green)',
+                            borderColor: '#00ff88',
                             borderWidth: 2,
                             pointRadius: 0
                         },
@@ -838,9 +845,9 @@ run_simulation
                     <tr class="${rowClass}">
                         <td>${row.date}</td>
                         <td>${row.close.toFixed(2)}</td>
-                        <td>${row.sma7 ? row.sma7.toFixed(2) : '-'}</td>
-                        <td>${row.sma30 ? row.sma30.toFixed(2) : '-'}</td>
-                        <td>${row.rsi ? row.rsi.toFixed(2) : '-'}</td>
+                        <td>${row.sma7 != null ? row.sma7.toFixed(2) : '-'}</td>
+                        <td>${row.sma30 != null ? row.sma30.toFixed(2) : '-'}</td>
+                        <td>${row.rsi != null ? row.rsi.toFixed(2) : '-'}</td>
                         <td>${signalBadge}</td>
                         <td>${row.cash.toLocaleString(undefined, {maximumFractionDigits: 2})}</td>
                         <td>${row.btc_held.toFixed(4)}</td>
