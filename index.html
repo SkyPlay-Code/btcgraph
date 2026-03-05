@@ -304,6 +304,67 @@
             color: var(--text-secondary);
         }
 
+        /* Documentation Section */
+        .docs-toggle-container {
+            display: flex;
+            justify-content: center;
+            margin: 30px 0;
+        }
+
+        #docs-section {
+            background: var(--card-bg);
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            padding: 30px;
+            margin-bottom: 50px;
+        }
+
+        .docs-panel {
+            font-family: var(--font-sans);
+        }
+
+        .docs-panel h3 {
+            color: var(--electric-blue);
+            font-family: var(--font-mono);
+            font-size: 1.1rem;
+            margin: 25px 0 15px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .docs-panel h3:first-child {
+            margin-top: 0;
+        }
+
+        .docs-panel p {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            margin-bottom: 15px;
+            padding-left: 20px;
+            border-left: 3px solid var(--border-color);
+        }
+
+        .docs-panel ul {
+            list-style: none;
+            padding-left: 20px;
+            border-left: 3px solid var(--border-color);
+            margin-bottom: 15px;
+        }
+
+        .docs-panel li {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            margin-bottom: 8px;
+            position: relative;
+        }
+
+        .docs-panel li::before {
+            content: "→";
+            color: var(--electric-blue);
+            position: absolute;
+            left: -15px;
+        }
+
         @media (max-width: 768px) {
             .control-panel {
                 flex-direction: column;
@@ -380,6 +441,55 @@
                 <button id="prev-btn">Previous</button>
                 <span id="page-info">Page 1 of 1</span>
                 <button id="next-btn">Next</button>
+            </div>
+        </section>
+
+        <div class="docs-toggle-container">
+            <button id="docs-toggle-btn" class="secondary-btn">📖 View Documentation</button>
+        </div>
+
+        <section id="docs-section" class="hidden">
+            <div class="docs-panel">
+                <h3>Overview</h3>
+                <p>This tool performs a comprehensive algorithmic trading backtest for Bitcoin (BTC) using approximately 2.7 years (1,000 days) of real historical price data. It simulates how a specific technical strategy would have performed compared to a simple "buy and hold" approach.</p>
+
+                <h3>Data Source</h3>
+                <p>Price data is fetched live from the <strong>Binance API</strong> (<code>api.binance.com</code>). The simulation retrieves the daily OHLCV (Open, High, Low, Close, Volume) data for the BTC/USDT pair. Timestamps are converted from Unix milliseconds to ISO date strings for processing.</p>
+
+                <h3>Technical Indicators</h3>
+                <ul>
+                    <li><strong>SMA7:</strong> Fast Simple Moving Average (7-day window). Used to identify short-term trend direction.</li>
+                    <li><strong>SMA30:</strong> Slow Simple Moving Average (30-day window). Used to identify long-term trend momentum.</li>
+                    <li><strong>RSI-14:</strong> Relative Strength Index (14-day window). A momentum oscillator that measures the speed and change of price movements on a scale of 0 to 100. Overbought > 70, Oversold < 30.</li>
+                    <li><strong>Bollinger Bands:</strong> A volatility envelope consisting of a 20-day SMA and two outer bands plotted at ±2 standard deviations from the middle SMA.</li>
+                </ul>
+
+                <h3>Trading Algorithm</h3>
+                <p>The strategy employs a <strong>Golden Cross / Death Cross</strong> mechanism with an RSI confirmation filter:</p>
+                <ul>
+                    <li><strong>BUY Signal:</strong> Triggered when the SMA7 crosses <em>above</em> the SMA30 (Golden Cross) AND the RSI is <em>below</em> 70 (ensuring the asset is not overbought).</li>
+                    <li><strong>SELL Signal:</strong> Triggered when the SMA7 crosses <em>below</em> the SMA30 (Death Cross) AND the RSI is <em>above</em> 30 (ensuring the asset is not oversold).</li>
+                    <li><strong>Position Sizing:</strong> The simulation starts with $10,000 USD and utilizes 100% of available capital for each trade (all-in/all-out).</li>
+                </ul>
+
+                <h3>Performance Metrics</h3>
+                <ul>
+                    <li><strong>Final Portfolio Value:</strong> The ending total value of cash and BTC holdings.</li>
+                    <li><strong>Total Return %:</strong> Percentage gain or loss of the strategy from inception.</li>
+                    <li><strong>Buy & Hold Return %:</strong> Passive benchmark performance if you had simply bought $10,000 of BTC on Day 1.</li>
+                    <li><strong>Alpha:</strong> The strategy's outperformance (or underperformance) relative to the Buy & Hold benchmark.</li>
+                    <li><strong>Total Trades:</strong> The number of completed buy-to-sell round trips.</li>
+                    <li><strong>Win Rate %:</strong> Percentage of completed trades that resulted in a profit.</li>
+                    <li><strong>Max Drawdown %:</strong> The largest peak-to-trough decline in portfolio value, representing historical risk.</li>
+                    <li><strong>Sharpe Ratio:</strong> A measure of risk-adjusted return, calculated using annualized daily returns and their standard deviation (assumes 365-day trading).</li>
+                </ul>
+
+                <h3>Chart Guide</h3>
+                <p><strong>Price Chart:</strong> The main window displays the BTC closing price (white), SMA7 (orange), SMA30 (blue), and Bollinger Bands (shaded region). Green triangles indicate BUY signals; red triangles indicate SELL signals.</p>
+                <p><strong>Portfolio Chart:</strong> Displays the growth of the Algo Strategy (solid neon green) versus the Buy & Hold benchmark (dashed gray line).</p>
+
+                <h3>Limitations & Disclaimer</h3>
+                <p>This application is for <strong>educational and simulation purposes only</strong>. Past performance is not indicative of future results. The model does not account for trading fees, exchange slippage, or liquidity constraints. Cryptocurrency trading involves significant risk of loss.</p>
             </div>
         </section>
     </main>
@@ -918,6 +1028,15 @@ async function fetchBTCData() {
             }
         });
         document.getElementById('export-btn').addEventListener('click', exportCSV);
+
+        // Docs Toggle
+        const docsToggleBtn = document.getElementById('docs-toggle-btn');
+        const docsSection = document.getElementById('docs-section');
+
+        docsToggleBtn.addEventListener('click', () => {
+            docsSection.classList.toggle('hidden');
+            docsToggleBtn.innerText = docsSection.classList.contains('hidden') ? '📖 View Documentation' : '✖ Close Documentation';
+        });
 
         // Initial Load
         window.addEventListener('load', initPyodide);
