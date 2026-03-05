@@ -551,6 +551,7 @@ def run_simulation():
     # 3. Trading Algorithm
     cash = 10000.0
     btc_held = 0.0
+    entry_price = 0.0
     ledger = []
 
     bh_btc_held = 10000.0 / ohlcv[0]["close"]
@@ -572,13 +573,22 @@ def run_simulation():
             prev_s30 = sma30[i-1]
 
             if prev_s7 is not None and prev_s30 is not None:
+                # Stop-loss: exit if price drops 5% below entry
+                if btc_held > 0 and entry_price > 0 and price <= entry_price * 0.95:
+                    gross_cash = btc_held * price
+                    fee = gross_cash * 0.001
+                    cash = gross_cash - fee
+                    btc_held = 0
+                    signal = "SELL"
+                    entry_price = 0.0
                 # BUY: SMA7 crosses above SMA30 AND RSI < 70
-                if prev_s7 <= prev_s30 and s7 > s30 and r14 < 70:
+                elif prev_s7 <= prev_s30 and s7 > s30 and r14 < 70:
                     if cash > 0:
                         fee = (cash / price) * 0.001
                         btc_held = (cash / price) - fee
                         cash = 0
                         signal = "BUY"
+                        entry_price = price
 
                 # SELL: SMA7 crosses below SMA30 AND RSI > 30
                 elif prev_s7 >= prev_s30 and s7 < s30 and r14 > 30:
@@ -588,6 +598,7 @@ def run_simulation():
                         cash = gross_cash - fee
                         btc_held = 0
                         signal = "SELL"
+                        entry_price = 0.0
                     # A better win check would compare sell price to entry price.
                     # Let's track entry price.
 
