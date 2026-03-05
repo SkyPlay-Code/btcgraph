@@ -528,8 +528,9 @@
                 <h3>Trading Algorithm</h3>
                 <p>The strategy employs a <strong>Golden Cross / Death Cross</strong> mechanism with an RSI confirmation filter:</p>
                 <ul>
-                    <li><strong>BUY Signal:</strong> Triggered when the SMA7 crosses <em>above</em> the SMA30 (Golden Cross) AND the RSI is <em>below</em> 70 (ensuring the asset is not overbought).</li>
-                    <li><strong>SELL Signal:</strong> Triggered when the SMA7 crosses <em>below</em> the SMA30 (Death Cross) AND the RSI is <em>above</em> 30 (ensuring the asset is not oversold).</li>
+                    <li><strong>BUY Signal:</strong> Triggered when the SMA Fast crosses <em>above</em> the SMA Slow AND the RSI is <em>below</em> the Overbought threshold.</li>
+                    <li><strong>SELL Signal:</strong> Triggered when the SMA Fast crosses <em>below</em> the SMA Slow OR the price falls below the <strong>Stop-Loss</strong> threshold.</li>
+                    <li><strong>Next-Day Execution:</strong> Signals are detected at the daily close, and trades are executed at the <strong>Open price of the following day</strong> to prevent look-ahead bias.</li>
                     <li><strong>Position Sizing:</strong> The simulation starts with $10,000 USD and utilizes 100% of available capital for each trade (all-in/all-out).</li>
                 </ul>
 
@@ -614,6 +615,7 @@ def run_simulation():
     cash = 10000.0
     btc_held = 0.0
     entry_price = 0.0
+    pending_order = None
     ledger = []
 
     bh_btc_held = 10000.0 / ohlcv[0]["close"]
@@ -623,13 +625,32 @@ def run_simulation():
 
     for i in range(len(ohlcv)):
         price = ohlcv[i]["close"]
+        open_price = ohlcv[i]["open"]
+
+        # Phase 1: Execute pending orders from yesterday at today's open
+        if pending_order == "BUY" and cash > 0:
+            exec_price = open_price
+            fee = (cash / exec_price) * 0.001
+            btc_held = (cash / exec_price) - fee
+            cash = 0
+            entry_price = exec_price
+            pending_order = None
+        elif pending_order == "SELL" and btc_held > 0:
+            exec_price = open_price
+            gross_cash = btc_held * exec_price
+            fee = gross_cash * 0.001
+            cash = gross_cash - fee
+            btc_held = 0
+            entry_price = 0.0
+            pending_order = None
+
         s7 = sma7[i]
         s30 = sma30[i]
         r14 = rsi14[i]
 
         signal = "HOLD"
 
-        # Check signals if we have indicators
+        # Phase 2: Signal detection for tomorrow
         if s7 is not None and s30 is not None and r14 is not None:
             prev_s7 = sma7[i-1]
             prev_s30 = sma30[i-1]
@@ -637,30 +658,19 @@ def run_simulation():
             if prev_s7 is not None and prev_s30 is not None:
                 # Stop-loss: exit if price drops X% below entry
                 if btc_held > 0 and entry_price > 0 and price <= entry_price * STOP_LOSS_MULT:
-                    gross_cash = btc_held * price
-                    fee = gross_cash * 0.001
-                    cash = gross_cash - fee
-                    btc_held = 0
+                    pending_order = "SELL"
                     signal = "SELL"
-                    entry_price = 0.0
                 # BUY: SMA7 crosses above SMA30 AND RSI < RSI_OB
                 elif prev_s7 <= prev_s30 and s7 > s30 and r14 < RSI_OB:
                     if cash > 0:
-                        fee = (cash / price) * 0.001
-                        btc_held = (cash / price) - fee
-                        cash = 0
+                        pending_order = "BUY"
                         signal = "BUY"
-                        entry_price = price
 
                 # SELL: SMA7 crosses below SMA30 AND RSI > RSI_OS
                 elif prev_s7 >= prev_s30 and s7 < s30 and r14 > RSI_OS:
                     if btc_held > 0:
-                        gross_cash = btc_held * price
-                        fee = gross_cash * 0.001
-                        cash = gross_cash - fee
-                        btc_held = 0
+                        pending_order = "SELL"
                         signal = "SELL"
-                        entry_price = 0.0
                     # A better win check would compare sell price to entry price.
                     # Let's track entry price.
 
