@@ -511,47 +511,41 @@
 
         <section id="docs-section" class="hidden">
             <div class="docs-panel">
-                <h3>Overview</h3>
-                <p>This tool performs a comprehensive algorithmic trading backtest for Bitcoin (BTC) using approximately 2.7 years (1,000 days) of real historical price data. It simulates how a specific technical strategy would have performed compared to a simple "buy and hold" approach.</p>
+                <h3>1. What is the purpose of this tool?</h3>
+                <p>This is an <strong>Algorithmic Trading Backtester</strong>. Instead of buying and selling Bitcoin based on emotions, panic, or Twitter hype, algorithmic trading relies on strict mathematical rules. This tool simulates the last ~2.7 years of real Bitcoin data to answer one specific question: <em>"If I had followed these exact math rules every single day, would I have made more money than simply holding Bitcoin?"</em></p>
 
-                <h3>Data Source</h3>
-                <p>Price data is fetched live from the <strong>Binance API</strong> (<code>api.binance.com</code>). The simulation retrieves the daily OHLCV (Open, High, Low, Close, Volume) data for the BTC/USDT pair. Timestamps are converted from Unix milliseconds to ISO date strings for processing.</p>
-
-                <h3>Technical Indicators</h3>
+                <h3>2. How the Strategy Works (The Logic)</h3>
+                <p>This bot uses a "Trend-Following" strategy with a momentum safety-filter. It tries to ride big upward price waves while avoiding buying at the very top of a bubble.</p>
                 <ul>
-                    <li><strong>SMA7:</strong> Fast Simple Moving Average (7-day window). Used to identify short-term trend direction.</li>
-                    <li><strong>SMA30:</strong> Slow Simple Moving Average (30-day window). Used to identify long-term trend momentum.</li>
-                    <li><strong>RSI-14:</strong> Relative Strength Index (14-day window). A momentum oscillator that measures the speed and change of price movements on a scale of 0 to 100. Overbought > 70, Oversold < 30.</li>
-                    <li><strong>Bollinger Bands:</strong> A volatility envelope consisting of a 20-day SMA and two outer bands plotted at ±2 standard deviations from the middle SMA.</li>
+                    <li><strong>Moving Averages (SMA):</strong> The bot calculates the average price over a short period (Fast SMA) and a long period (Slow SMA). If the Fast SMA crosses <em>above</em> the Slow SMA, it tells the bot a new upward trend is starting.</li>
+                    <li><strong>Relative Strength Index (RSI):</strong> A momentum score from 0 to 100 that tells us if Bitcoin is currently "Overbought" (too expensive/overhyped) or "Oversold" (cheap/panic selling).</li>
+                    <li><strong>The BUY Rule:</strong> The bot buys when a new upward trend starts <strong>ONLY IF</strong> the RSI shows the asset isn't already dangerously overbought.</li>
+                    <li><strong>The SELL Rule:</strong> The bot sells your Bitcoin back to Cash if the trend reverses downward, or if the momentum completely dies out.</li>
                 </ul>
 
-                <h3>Trading Algorithm</h3>
-                <p>The strategy employs a <strong>Golden Cross / Death Cross</strong> mechanism with an RSI confirmation filter:</p>
+                <h3>3. How to Use the Settings</h3>
+                <p>You can tweak the "brain" of the bot using the control panel to see how different rules affect your profit:</p>
                 <ul>
-                    <li><strong>BUY Signal:</strong> Triggered when the SMA Fast crosses <em>above</em> the SMA Slow AND the RSI is <em>below</em> the Overbought threshold.</li>
-                    <li><strong>SELL Signal:</strong> Triggered when the SMA Fast crosses <em>below</em> the SMA Slow OR the price falls below the <strong>Stop-Loss</strong> threshold.</li>
-                    <li><strong>Next-Day Execution:</strong> Signals are detected at the daily close, and trades are executed at the <strong>Open price of the following day</strong> to prevent look-ahead bias.</li>
-                    <li><strong>Position Sizing:</strong> The simulation starts with $10,000 USD and utilizes 100% of available capital for each trade (all-in/all-out).</li>
+                    <li><strong>Fast / Slow SMA:</strong> Default is 7 and 30 days. Smaller numbers make the bot trade very frequently (catching quick spikes, but getting fooled by "fakeouts"). Larger numbers (like 50 and 200) make it slower but much more reliable.</li>
+                    <li><strong>RSI OB / OS:</strong> This is the bot's risk tolerance for hype. Changing the Overbought (OB) limit from 70 to 85 makes the bot more aggressive, willing to buy even when the market is hot.</li>
+                    <li><strong>Stop-Loss %:</strong> Your safety net. A 5% stop-loss means if a trade goes wrong, the bot instantly cuts its losses at -5% to prevent a catastrophic wipeout.</li>
                 </ul>
 
-                <h3>Performance Metrics</h3>
+                <h3>4. How to Read the Scoreboard</h3>
                 <ul>
-                    <li><strong>Final Portfolio Value:</strong> The ending total value of cash and BTC holdings.</li>
-                    <li><strong>Total Return %:</strong> Percentage gain or loss of the strategy from inception.</li>
-                    <li><strong>Buy & Hold Return %:</strong> Passive benchmark performance if you had simply bought $10,000 of BTC on Day 1.</li>
-                    <li><strong>Alpha:</strong> The strategy's outperformance (or underperformance) relative to the Buy & Hold benchmark.</li>
-                    <li><strong>Total Trades:</strong> The number of completed buy-to-sell round trips.</li>
-                    <li><strong>Win Rate %:</strong> Percentage of completed trades that resulted in a profit.</li>
-                    <li><strong>Max Drawdown %:</strong> The largest peak-to-trough decline in portfolio value, representing historical risk.</li>
-                    <li><strong>Sharpe Ratio:</strong> A measure of risk-adjusted return, calculated using annualized daily returns and their standard deviation (assumes 365-day trading).</li>
+                    <li><strong>Alpha:</strong> The most important number on the screen. If Alpha is positive (+), your bot successfully beat a simple "Buy & Hold" strategy. If it's negative (-), you would have been better off just doing nothing.</li>
+                    <li><strong>Win Rate:</strong> You don't need a 100% win rate to be profitable. Many successful trend-following algorithms only win 40% of the time, but their wins are massive and their losses are tiny (thanks to the Stop-Loss).</li>
+                    <li><strong>Max Drawdown:</strong> The "pain" metric. It shows the biggest portfolio drop from an all-time high. A 50% drawdown means your portfolio value was cut in half at one point during the 3 years.</li>
+                    <li><strong>Sharpe Ratio:</strong> Measures your Risk vs. Reward. A Sharpe Ratio above 1.0 is considered good. Above 2.0 is incredible. Less than 1.0 means the strategy is too risky for the amount of money it makes.</li>
                 </ul>
 
-                <h3>Chart Guide</h3>
-                <p><strong>Price Chart:</strong> The main window displays the BTC closing price (white), SMA7 (orange), SMA30 (blue), and Bollinger Bands (shaded region). Green triangles indicate BUY signals; red triangles indicate SELL signals.</p>
-                <p><strong>Portfolio Chart:</strong> Displays the growth of the Algo Strategy (solid neon green) versus the Buy & Hold benchmark (dashed gray line).</p>
-
-                <h3>Limitations & Disclaimer</h3>
-                <p>This application is for <strong>educational and simulation purposes only</strong>. Past performance is not indicative of future results. The model accounts for a fixed <strong>0.1% trading fee</strong> per execution but does not model exchange slippage or liquidity constraints. Cryptocurrency trading involves significant risk of loss.</p>
+                <h3>5. How Realistic is This?</h3>
+                <p>Unlike many "fake" or amateur backtesters, this tool models reality in two critical ways to prevent skewed results:</p>
+                <ul>
+                    <li><strong>Execution Delay (No Cheating):</strong> If the math triggers a Buy signal at midnight, the bot cannot magically buy at yesterday's price. It waits and executes the trade at the <em>next day's opening price</em>.</li>
+                    <li><strong>Exchange Fees:</strong> It automatically deducts a realistic <strong>0.1% trading fee</strong> (the standard Binance spot fee) every single time it buys or sells.</li>
+                </ul>
+                <p><em>Disclaimer: Real life involves "slippage" (the price changing slightly while your order is processing in the real world) and taxes, which are not simulated here. This tool is for educational strategy testing, not financial advice.</em></p>
             </div>
         </section>
     </main>
